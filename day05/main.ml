@@ -11,7 +11,7 @@ type segment = {
 type linesegment =
   | Horizontal of segment
   | Vertical of segment
-  | General of segment
+  | Diagonal of segment
 
 let is_horizontal (s: segment): bool = s.start_pt.y = s.end_pt.y
 let is_vertical (s: segment): bool = s.start_pt.x = s.end_pt.x
@@ -19,7 +19,7 @@ let is_vertical (s: segment): bool = s.start_pt.x = s.end_pt.x
 let type_of_linesegment (s: segment): linesegment =
   if is_horizontal s then Horizontal s
   else if is_vertical s then Vertical s
-  else General s
+  else Diagonal s
 
 let rec get_points_on_axis_aligned (variable_pt: point) (fixed_pt: point) (next: point->point): point list =
   if variable_pt = fixed_pt then [variable_pt]
@@ -35,10 +35,23 @@ let get_points_on_vertical (l: segment): point list =
   if l.start_pt.y < l.end_pt.y then get_points_on_axis_aligned l.start_pt l.end_pt next_f
   else get_points_on_axis_aligned l.end_pt l.start_pt next_f
 
+let get_points_on_diagonal (l: segment): point list =
+  let dx x = if l.start_pt.x < l.end_pt.x then x+1 else x-1 in
+  let dy y = if l.start_pt.y < l.end_pt.y then y+1 else y-1 in
+
+  let rec points_on_diagonal variable_pt fixed_pt delta_x delta_y =
+    if variable_pt = fixed_pt then [variable_pt]
+    else
+      let new_pt = {x=delta_x variable_pt.x; y=delta_y variable_pt.y} in
+      variable_pt :: points_on_diagonal new_pt fixed_pt delta_x delta_y
+  in
+
+  points_on_diagonal l.start_pt l.end_pt dx dy
+
 let points_on_line (ls: linesegment): point list = match ls with
   | Horizontal s -> get_points_on_horizontal s
   | Vertical s -> get_points_on_vertical s
-  | General _ -> failwith "Points computation for a general linesegment not implemented yet"
+  | Diagonal s -> get_points_on_diagonal s
 
 let rec number_of_overlapping_points
   (found_point: point -> unit) (compute_result: unit -> int) (linesegments: linesegment list): int =
@@ -79,7 +92,6 @@ let parse_input (input_file: string): linesegment list =
   parse_linesegments []
 
 let () =
-  (* part 1 *)
   let ht = Hashtbl.create 64 in
 
   let found_pt (pt: point): unit =
@@ -94,13 +106,23 @@ let () =
     Hashtbl.fold (fun _ v acc -> if v > 1 then acc + 1 else acc) ht 0
   in
 
+  (* part 1 *)
   let answer = parse_input "input.txt"
   |> List.filter (fun ls ->
       match ls with
         | Horizontal _  -> true
         | Vertical _ -> true
-        | General _ -> false
+        | Diagonal _ -> false
     )
+  |> number_of_overlapping_points found_pt num_overlapping in
+
+  print_int answer;
+  print_endline "";
+
+  Hashtbl.clear ht;
+
+  (* part 2*)
+  let answer = parse_input "input.txt"
   |> number_of_overlapping_points found_pt num_overlapping in
 
   print_int answer;
